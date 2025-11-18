@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Flood Risk Checker</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f2f2f2;
+            padding: 20px;
+        }
+        .box {
+            background: white;
+            padding: 20px;
+            width: 400px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input {
+            padding: 8px;
+            width: 180px;
+            margin-bottom: 10px;
+        }
+    </style>
+
+</head>
+<body>
+
+    <h1>Flood Risk Test Page</h1>
+
+    <div class="box">
+        <h3>Enter Coordinates</h3>
+
+        <input id="lat" placeholder="Latitude" type="number" step="0.0001">
+        <br>
+        <input id="lon" placeholder="Longitude" type="number" step="0.0001">
+        <br><br>
+
+        <button onclick="checkRisk()">Check Flood Risk</button>
+        <button onclick="useLocation()">Use My Location</button>
+    </div>
+
+    <div class="box">
+        <h3>Response</h3>
+        <pre id="output">No data yet.</pre>
+    </div>
+
+
+    <script>
+        async function checkRisk() {
+            const lat = document.getElementById("lat").value;
+            const lon = document.getElementById("lon").value;
+
+            if (!lat || !lon) {
+                alert("Enter lat lon first!");
+                return;
+            }
+
+            const url = `http://localhost:3000/risk?lat=${lat}&lon=${lon}`;
+
+            const res = await fetch(url);
+            const data = await res.json();
+
+            document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+        }
+
+
+        // ============================
+        // Use browser geolocation
+        // ============================
+        function useLocation() {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+
+                document.getElementById("lat").value = lat;
+                document.getElementById("lon").value = lon;
+
+                checkRisk();
+            },
+            err => {
+                alert("Location access denied.");
+            });
+        }
+    </script>
+
+</body>
+</html>
