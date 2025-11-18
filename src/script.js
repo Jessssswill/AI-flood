@@ -35,31 +35,45 @@ async function getElevation(lat, lon) {
   const res = await fetch(url);
   const data = await res.json();
 
-  return data.elevation ? data.elevation[0] : 10;
+  return Array.isArray(data.elevation) ? data.elevation[0] : 10;
+;
 }
 
 // ---------------- RAIN SCORE ----------------
 function calculateRainScore(weatherData) {
-  if (!weatherData.hourly) return { rain1h: 0, rain3h: 0, rain6h: 0, rainScore: 0 };
+  const rainArr = weatherData.hourly?.rain ?? [];
+  const precipArr = weatherData.hourly?.precipitation ?? [];
 
-  const rainArr = weatherData.hourly.rain || [];
-  const precipArr = weatherData.hourly.precipitation || [];
+  const getRain = (i) => Math.max(rainArr[i] ?? 0, precipArr[i] ?? 0);
 
-  const rain1h = rainArr[0] || precipArr[0] || 0;
+  
+  const r = Array.from({ length: 6 }, (_, i) => getRain(i));
 
-  const rain3h = (rainArr[0] || 0) + (rainArr[1] || 0) + (rainArr[2] || 0);
+  const [r0, r1, r2, r3, r4, r5] = r; 
 
-  const rain6h =
-    (rainArr[0] || 0) +
-    (rainArr[1] || 0) +
-    (rainArr[2] || 0) +
-    (rainArr[3] || 0) +
-    (rainArr[4] || 0) +
-    (rainArr[5] || 0);
+  const rain1h = r0;
+  const rain3h = r0 + r1 + r2;
+  const rain6h = rain3h + r3 + r4 + r5;
 
-  const rainScore = (rain1h * 1.5) + (rain3h * 1) + (rain6h * 0.5);
+  const weightedAvg =
+    (r0 * 3 + r1 * 2.5 + r2 * 2 + r3 * 1.5 + r4 * 1 + r5 * 0.8) / 6;
 
-  return { rain1h, rain3h, rain6h, rainScore };
+  const rainScore =
+    (rain1h * 2.2) +
+    (rain3h * 1.2) +
+    (rain6h * 0.6) +
+    (weightedAvg * 4);
+
+  return {
+    rain1h,
+    rain3h,
+    rain6h,
+    weightedAvg: Number(weightedAvg.toFixed(2)),
+    rainScore: Number(rainScore.toFixed(2)),
+    raw6hrain : r,
+    pressure : weatherData.hourly?.pressure_msl?.[0] ?? null,
+    cloudCover: weatherData.hourly?.cloud_cover?.[0] ?? null,
+  };
 }
 
 // ---------------- USER REPORT ----------------
@@ -78,25 +92,57 @@ function getUserReportScore(lat, lon) {
 
   return 0;
 }
-
+function calculateStormScore(weatherData){
+  const datas = weatherData.hourly?.weathercode ?? []
+  let score = 0
+  for(let i = 0; i<6; i++){
+    const data = datas[i]??0
+    if(data >=95){
+      score+=15
+    }
+    else if( data >= 80){
+      score+=5
+    }
+    else if( data >= 60){
+      score+=2
+    }
+    else if( data >= 50){
+      score+=1
+    }
+  }
+  return Math.min(score, 30);
+}
 // ---------------- HISTORICAL SCORE ----------------
 function getHistoricalScore(lat, lon) {
-  if (lon > 106.82) return 20;
-  return 5;
+  let score = 5
+  //rawan banjir
+  if(lat<-6.1){
+    score+= 10
+  }
+  //contoh jakbar, jakut
+  if(lon>106.75 && lon < 106.9){
+    score+=10
+  }
+  //daerah persisir
+  if(lat < -6.05){
+    score+=5
+  }
+  return score;
 }
 
 // ---------------- FINAL RISK ----------------
-function calculateFloodRisk(rainScore, elevMeters, histScore, reportScore) {
+function calculateFloodRisk(rainScore, elevMeters, histScore, reportScore, stormScore) {
   let elevScore = 5;
 
   if (elevMeters < 5) elevScore = 30;
   else if (elevMeters < 15) elevScore = 15;
 
   const finalRisk =
-    (rainScore * 0.6) +
-    (elevScore * 0.3) +
-    (histScore * 0.1) +
-    reportScore;
+    rainScore*0.5 +
+    elevScore*0.25 +
+    stormScore+
+    histScore*0.05 +
+    reportScore*0.05;
 
   let status = "AMAN";
   if (finalRisk > 80) status = "BAHAYA";
@@ -113,16 +159,16 @@ app.get("/risk", async (req, res) => {
   try {
     const weather = await getWeather(lat, lon);
     const elevation = await getElevation(lat, lon);
-
     const rain = calculateRainScore(weather);
     const histScore = getHistoricalScore(lat, lon);
     const reportScore = getUserReportScore(lat, lon);
-
+    const stormScore=calculateStormScore(weather)
     const final = calculateFloodRisk(
       rain.rainScore,
       elevation,
       histScore,
-      reportScore
+      reportScore,
+      stormScore
     );
 
     
