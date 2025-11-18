@@ -5,51 +5,73 @@ import "dotenv/config";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// --- SETUP STATIC SERVER ---
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-app.use(express.static(__dirname));
+// Mengatur agar server menyajikan file dari folder 'public'
+app.use(express.static(path.join(__dirname, 'public'))); 
 
 const PORT = process.env.PORT || 3000;
 
+// --- LOGIKA BACKEND (MENGGUNAKAN SEMUA FUNGSI KUSTOM KAMU) ---
 
-// ---------------- WEATHER ----------------
+// [FITUR BARU] - Reverse Geocoding (Lat/Lon -> Nama Kota)
+async function getCityName(lat, lon) {
+  try {
+    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=id`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Gagal geocoding");
+    const data = await res.json();
+    // Menggabungkan nama daerah, kota, dan provinsi
+    return `${data.locality || ''}, ${data.city || data.principalSubdivision || ''}`;
+  } catch (err) {
+    console.error("Geocoding error:", err.message);
+    return `Lokasi: ${lat}, ${lon}`; // Fallback jika gagal
+  }
+}
+
+// 1. GET WEATHER (Open-Meteo) - [DI-UPGRADE!]
 async function getWeather(lat, lon) {
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-    `&hourly=precipitation,rain,showers,pressure_msl,cloud_cover,weathercode` +
+    `&hourly=precipitation,rain,showers,weathercode,temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,cloud_cover,visibility,wind_speed_10m,wind_direction_10m` +
+    `&daily=uv_index_max` + // Data UV untuk frontend
     `&forecast_days=1&timezone=auto`;
 
-  const res = await fetch(url);
-  return await res.json();
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Gagal ambil data cuaca");
+    return await res.json();
+  } catch (err) {
+    console.error(err.message);
+    return null; 
+  }
 }
 
-// ---------------- ELEVATION ----------------
+// 2. GET ELEVATION (Logika Asli Kamu)
 async function getElevation(lat, lon) {
   const url =
     `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`;
 
   const res = await fetch(url);
   const data = await res.json();
-
   return Array.isArray(data.elevation) ? data.elevation[0] : 10;
-;
 }
 
-// ---------------- RAIN SCORE ----------------
+// 3. RAIN SCORE (Logika Asli Kamu - Keren!)
 function calculateRainScore(weatherData) {
   const rainArr = weatherData.hourly?.rain ?? [];
   const precipArr = weatherData.hourly?.precipitation ?? [];
 
   const getRain = (i) => Math.max(rainArr[i] ?? 0, precipArr[i] ?? 0);
-
   
   const r = Array.from({ length: 6 }, (_, i) => getRain(i));
-
-  const [r0, r1, r2, r3, r4, r5] = r; 
+  const [r0, r1, r2, r3, r4, r5] = r;  
 
   const rain1h = r0;
   const rain3h = r0 + r1 + r2;
@@ -76,9 +98,8 @@ function calculateRainScore(weatherData) {
   };
 }
 
-// ---------------- USER REPORT ----------------
+// 4. USER REPORT SCORE (Logika Asli Kamu)
 let userReports = [];
-
 function getUserReportScore(lat, lon) {
   const radius = 0.01;
   const reports = userReports.filter(r =>
@@ -89,54 +110,40 @@ function getUserReportScore(lat, lon) {
   if (reports.length >= 10) return 25;
   if (reports.length >= 5) return 15;
   if (reports.length >= 1) return 5;
-
   return 0;
 }
+
+// 5. STORM SCORE (Logika Asli Kamu - Keren!)
 function calculateStormScore(weatherData){
   const datas = weatherData.hourly?.weathercode ?? []
   let score = 0
   for(let i = 0; i<6; i++){
     const data = datas[i]??0
-    if(data >=95){
-      score+=15
-    }
-    else if( data >= 80){
-      score+=5
-    }
-    else if( data >= 60){
-      score+=2
-    }
-    else if( data >= 50){
-      score+=1
-    }
+    if(data >=95){ score+=15 } // Badai Petir
+    else if( data >= 80){ score+=5 } // Hujan Badai
+    else if( data >= 60){ score+=2 } // Hujan
+    else if( data >= 50){ score+=1 } // Gerimis
   }
-  return Math.min(score, 30);
+  return Math.min(score, 30); // Batasi maks 30
 }
-// ---------------- HISTORICAL SCORE ----------------
+
+// 6. HISTORICAL SCORE (Logika Asli Kamu)
 function getHistoricalScore(lat, lon) {
   let score = 5
-  //rawan banjir
-  if(lat<-6.1){
-    score+= 10
-  }
-  //contoh jakbar, jakut
-  if(lon>106.75 && lon < 106.9){
-    score+=10
-  }
-  //daerah persisir
-  if(lat < -6.05){
-    score+=5
-  }
+  if(lat<-6.1){ score+= 10 } // rawan banjir
+  if(lon>106.75 && lon < 106.9){ score+=10 } // jakbar, jakut
+  if(lat < -6.05){ score+=5 } //daerah persisir
   return score;
 }
 
-// ---------------- FINAL RISK ----------------
+// 7. FINAL RISK (Logika Asli Kamu - [DI-UPGRADE!])
 function calculateFloodRisk(rainScore, elevMeters, histScore, reportScore, stormScore) {
   let elevScore = 5;
 
   if (elevMeters < 5) elevScore = 30;
   else if (elevMeters < 15) elevScore = 15;
 
+  // Rumus Final Asli Kamu
   const finalRisk =
     rainScore*0.5 +
     elevScore*0.25 +
@@ -145,24 +152,36 @@ function calculateFloodRisk(rainScore, elevMeters, histScore, reportScore, storm
     reportScore*0.05;
 
   let status = "AMAN";
-  if (finalRisk > 80) status = "BAHAYA";
-  else if (finalRisk > 60) status = "SIAGA";
-  else if (finalRisk > 40) status = "WASPADA";
+  let color = "green"; // [UPGRADE] Tambahkan warna untuk frontend
+  if (finalRisk > 80) { status = "BAHAYA"; color = "red"; }
+  else if (finalRisk > 60) { status = "SIAGA"; color = "orange"; }
+  else if (finalRisk > 40) { status = "WASPADA"; color = "yellow"; }
 
-  return { finalRisk: Math.round(finalRisk), status };
+  return { finalRisk: Math.round(finalRisk), status, color }; // [UPGRADE] Kirim 'color'
 }
 
-// ---------------- ENDPOINT: /risk ----------------
+// --- ENDPOINTS ---
+
+// 1. Endpoint /risk (KRUSIAL: DI-UPGRADE AGAR NYAMBUNG KE FRONTEND V4.1)
 app.get("/risk", async (req, res) => {
   const { lat, lon } = req.query;
+  if (!lat || !lon) return res.status(400).json({ error: "Lat/Lon dibutuhkan" });
 
   try {
-    const weather = await getWeather(lat, lon);
-    const elevation = await getElevation(lat, lon);
+    // Panggil 3 API secara paralel
+    const [weather, elevation, locationName] = await Promise.all([
+        getWeather(lat, lon),
+        getElevation(lat, lon),
+        getCityName(lat, lon) // Panggil Geocoding
+    ]);
+
+    // Hitung semua skor kustom-mu
     const rain = calculateRainScore(weather);
-    const histScore = getHistoricalScore(lat, lon);
-    const reportScore = getUserReportScore(lat, lon);
-    const stormScore=calculateStormScore(weather)
+    const histScore = getHistoricalScore(Number(lat), Number(lon));
+    const reportScore = getUserReportScore(Number(lat), Number(lon));
+    const stormScore = calculateStormScore(weather);
+    
+    // Hitung status final
     const final = calculateFloodRisk(
       rain.rainScore,
       elevation,
@@ -171,20 +190,47 @@ app.get("/risk", async (req, res) => {
       stormScore
     );
 
-    
-    res.json({ status: final.status });
+    // Siapkan data cuaca saat ini untuk frontend
+    let currentWeather = null;
+    if (weather && weather.hourly) {
+      const h = weather.hourly;
+      currentWeather = {
+        temperature: h.temperature_2m[0],
+        apparent_temperature: h.apparent_temperature[0],
+        humidity: h.relative_humidity_2m[0],
+        pressure: h.pressure_msl[0],
+        cloud_cover: h.cloud_cover[0],
+        visibility: h.visibility?.[0] / 1000 || 10, // convert meter ke km, fallback 10km
+        wind_speed_10m: h.wind_speed_10m[0],
+        wind_direction_10m: h.wind_direction_10m[0],
+        uv_index: weather.daily?.uv_index_max?.[0] || 0,
+        weathercode: h.weathercode[0]
+      };
+    }
+
+    // [UPGRADE] Kirim paket data LENGKAP ke frontend
+    res.json({
+      locationName,
+      final, // Mengandung: { finalRisk, status, color }
+      rain,  // Mengandung: { rain1h, rain3h, rain6h, rainScore, ... }
+      elevation,
+      scores: { histScore, reportScore, stormScore },
+      weatherData: weather,
+      currentWeather
+    });
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Gagal hitung risiko", details: err.message });
   }
 });
 
-// ---------------- USER REPORT ----------------
+// 2. Endpoint /report (Logika Asli Kamu)
 app.post("/report", (req, res) => {
   const { lat, lon, message } = req.body;
 
   userReports.push({
-    lat,
+    lat, // Tetap string, tidak masalah
     lon,
     message,
     time: Date.now()
@@ -193,7 +239,12 @@ app.post("/report", (req, res) => {
   res.json({ success: true, totalReports: userReports.length });
 });
 
-// ---------------- START SERVER ----------------
+// 3. Endpoint / (Serve Frontend)
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// --- START SERVER ---
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Server FloodGuard (Logika Lengkap) berjalan di http://localhost:${PORT}`);
 });
