@@ -66,7 +66,7 @@ async function getElevation(lat, lon) {
   return Array.isArray(data.elevation) ? data.elevation[0] : 10;
 }
 
-// 3. RAIN SCORE (Logika Asli Kamu - Keren!)
+// 3. RAIN SCORE 
 function calculateRainScore(weatherData) {
   const rainArr = weatherData?.hourly?.rain ?? [];
   const precipArr = weatherData?.hourly?.precipitation ?? [];
@@ -101,7 +101,7 @@ function calculateRainScore(weatherData) {
   };
 }
 
-// 4. USER REPORT SCORE (Logika Asli Kamu)
+// 4. USER REPORT SCORE 
 let userReports = [];
 function getUserReportScore(lat, lon) {
   const radius = 0.01;
@@ -116,7 +116,7 @@ function getUserReportScore(lat, lon) {
   return 0;
 }
 
-// 5. STORM SCORE (Logika Asli Kamu - Keren!)
+// 5. STORM SCORE 
 function calculateStormScore(weatherData){
   const datas = weatherData?.hourly?.weathercode ?? []
   let score = 0
@@ -211,11 +211,11 @@ app.get("/risk", async (req, res) => {
       };
     }
 
-    // [UPGRADE] Kirim paket data LENGKAP ke frontend
+    
     res.json({
       locationName,
-      final, // Mengandung: { finalRisk, status, color }
-      rain,  // Mengandung: { rain1h, rain3h, rain6h, rainScore, ... }
+      final, 
+      rain,  
       elevation,
       scores: { histScore, reportScore, stormScore },
       weatherData: weather,
@@ -228,7 +228,7 @@ app.get("/risk", async (req, res) => {
   }
 });
 
-// 2. Endpoint /report (Logika Asli Kamu)
+// 2. Endpoint /report 
 app.post("/report", (req, res) => {
   const { lat, lon, message } = req.body;
 
@@ -249,6 +249,5 @@ app.get("/", (req, res) => {
 
 // --- START SERVER ---
 app.listen(PORT, () => {
-  console.log(`🚀 Server FloodGuard (Logika Lengkap) berjalan di http://localhost:${PORT}`);
-  console.log(`📡 Diizinkan: Semua Origin (Termasuk Live Server Port 5500)`);
+  console.log(`Server is listening from http://localhost:${PORT}`);
 });
