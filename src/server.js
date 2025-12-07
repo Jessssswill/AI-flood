@@ -4,16 +4,33 @@ import cors from "cors";
 import "dotenv/config";
 import path from "path";
 import { fileURLToPath } from "url";
-
+import { fetchDataset } from "./get_dataset.js";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors()); //buat live server
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+//get dataset
+app.get("/generate-dataset", async (req, res) => {
+  await fetchDataset();
+  res.send("CSV dataset created: dataset.csv");
+});
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const ONE_HOUR = 1000 * 60 * 60;
+
+setInterval(async () => {
+  console.log("🔄 Auto-fetching dataset...");
+  try {
+    await fetchDataset();
+    console.log("✅ Auto dataset updated!");
+  } catch (err) {
+    console.error("❌ Auto update failed:", err);
+  }
+}, ONE_HOUR);
+
 // Mengatur agar server BISA menyajikan file, tapi kita utamakan Live Server
-app.use(express.static(path.join(__dirname, 'public'))); 
+
 
 const PORT = process.env.PORT || 3000;
 
@@ -244,7 +261,7 @@ app.post("/report", (req, res) => {
 
 // 3. Endpoint / (Serve Frontend)
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // --- START SERVER ---
