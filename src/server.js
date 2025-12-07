@@ -4,16 +4,33 @@ import cors from "cors";
 import "dotenv/config";
 import path from "path";
 import { fileURLToPath } from "url";
-
+import { fetchDataset } from "./get_dataset.js";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors()); //buat live server
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+//get dataset
+app.get("/generate-dataset", async (req, res) => {
+  await fetchDataset();
+  res.send("CSV dataset created: dataset.csv");
+});
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const ONE_HOUR = 1000 * 60 * 60;
+
+setInterval(async () => {
+  console.log("🔄 Auto-fetching dataset...");
+  try {
+    await fetchDataset();
+    console.log("✅ Auto dataset updated!");
+  } catch (err) {
+    console.error("❌ Auto update failed:", err);
+  }
+}, ONE_HOUR);
+
 // Mengatur agar server BISA menyajikan file, tapi kita utamakan Live Server
-app.use(express.static(path.join(__dirname, 'public'))); 
+
 
 const PORT = process.env.PORT || 3000;
 
@@ -66,7 +83,7 @@ async function getElevation(lat, lon) {
   return Array.isArray(data.elevation) ? data.elevation[0] : 10;
 }
 
-// 3. RAIN SCORE (Logika Asli Kamu - Keren!)
+// 3. RAIN SCORE 
 function calculateRainScore(weatherData) {
   const rainArr = weatherData?.hourly?.rain ?? [];
   const precipArr = weatherData?.hourly?.precipitation ?? [];
@@ -101,7 +118,7 @@ function calculateRainScore(weatherData) {
   };
 }
 
-// 4. USER REPORT SCORE (Logika Asli Kamu)
+// 4. USER REPORT SCORE 
 let userReports = [];
 function getUserReportScore(lat, lon) {
   const radius = 0.01;
@@ -116,7 +133,7 @@ function getUserReportScore(lat, lon) {
   return 0;
 }
 
-// 5. STORM SCORE (Logika Asli Kamu - Keren!)
+// 5. STORM SCORE 
 function calculateStormScore(weatherData){
   const datas = weatherData?.hourly?.weathercode ?? []
   let score = 0
@@ -211,11 +228,11 @@ app.get("/risk", async (req, res) => {
       };
     }
 
-    // [UPGRADE] Kirim paket data LENGKAP ke frontend
+    
     res.json({
       locationName,
-      final, // Mengandung: { finalRisk, status, color }
-      rain,  // Mengandung: { rain1h, rain3h, rain6h, rainScore, ... }
+      final, 
+      rain,  
       elevation,
       scores: { histScore, reportScore, stormScore },
       weatherData: weather,
@@ -228,7 +245,7 @@ app.get("/risk", async (req, res) => {
   }
 });
 
-// 2. Endpoint /report (Logika Asli Kamu)
+// 2. Endpoint /report 
 app.post("/report", (req, res) => {
   const { lat, lon, message } = req.body;
 
@@ -244,11 +261,10 @@ app.post("/report", (req, res) => {
 
 // 3. Endpoint / (Serve Frontend)
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // --- START SERVER ---
 app.listen(PORT, () => {
-  console.log(`🚀 Server FloodGuard (Logika Lengkap) berjalan di http://localhost:${PORT}`);
-  console.log(`📡 Diizinkan: Semua Origin (Termasuk Live Server Port 5500)`);
+  console.log(`Server is listening from http://localhost:${PORT}`);
 });
