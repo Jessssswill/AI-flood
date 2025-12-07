@@ -1,13 +1,4 @@
-# Ignore environment keys
 .env
-
-# Ignore dependencies
-node_modules/
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Optional
-.DS_Store
+package-lock.json
+node_modules
+dataset.csv
