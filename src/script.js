@@ -132,8 +132,8 @@ async function useIpLocation() {
 
     } catch (err) {
         console.error("IP Location Error:", err);
-        // PLAN C: Kalau IP juga gagal, tembak Jakarta Pusat (Default)
         useDefaultLocation();
+
     }
 }
 
@@ -165,7 +165,7 @@ function locationSuccess(position) {
     setInterval(() => {
         console.log("Auto-refresh data sensor...");
         fetchRiskData(currentCoords.lat, currentCoords.lon);
-    }, 600000); 
+    }, 1000); 
 }
 
 // 4. Gagal Dapat Lokasi
@@ -460,10 +460,21 @@ async function askNotificationPermission() {
 
         console.log("Berhasil Subscribe!");
 
-        // Kirim data langganan ke server
+        if (!currentCoords.lat || !currentCoords.lon) {
+            showToast("Tunggu sebentar, lokasi belum terdeteksi!", "warning");
+            return;
+        }
+
+        const subscriberData = {
+            subscription: subscription, // Kunci notifikasi
+            lat: currentCoords.lat,     // Lokasi User
+            lon: currentCoords.lon
+        };
+
+        // Kirim paket lengkap ke server
         await fetch('/subscribe', {
             method: 'POST',
-            body: JSON.stringify(subscription),
+            body: JSON.stringify(subscriberData),
             headers: {
                 'content-type': 'application/json'
             }

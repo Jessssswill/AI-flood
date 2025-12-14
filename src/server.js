@@ -91,45 +91,138 @@ async function getAiPrediction(weatherData, lat, lon, elevation) {
     });
 }
 
-// --- LOGIC AUTO NOTIFIKASI (AI VERSION) ---
-setInterval(async () => {
-   console.log("🔔 AI Background Check: Menganalisis potensi bahaya...");
+// setInterval(async () => {
+//    console.log("🔔 AI Background Check: Menganalisis potensi bahaya...");
 
-   const lat = -6.1754; 
-   const lon = 106.8272;
+//    const lat = -6.1754; 
+//    const lon = 106.8272;
 
-   try {
-       const [weather, elevation] = await Promise.all([
-           getWeather(lat, lon),
-           getElevation(lat, lon)
-       ]);
+//    try {
+//        const [weather, elevation] = await Promise.all([
+//            getWeather(lat, lon),
+//            getElevation(lat, lon)
+//        ]);
 
-       if (weather) {
-           // --- DISINI KITA PANGGIL AI ---
-           const aiResult = await getAiPrediction(weather, lat, lon, elevation);
+//        if (weather) {
+//            // --- DISINI KITA PANGGIL AI ---
+//            const aiResult = await getAiPrediction(weather, lat, lon, elevation);
 
-           console.log(`   > 🤖 Kata AI: ${aiResult.status} (Yakin: ${aiResult.confidence}%)`);
+//            console.log(`   > 🤖 Kata AI: ${aiResult.status} (Yakin: ${aiResult.confidence}%)`);
 
-           // Kirim Notif Jika Bahaya
-           if (aiResult.finalRisk > 70) { 
-               console.log("   > 🚨 BAHAYA! Mengirim notif...");
+//            // MODIFIKASI: Kirim notifikasi apapun statusnya (AMAN/SIAGA/BAHAYA)
+//            // Ubah angka 70 menjadi -1 supaya semua skor masuk
+//            if (aiResult.finalRisk > -1) { 
+//                console.log(`   > 📨 Mengirim Notifikasi Status: ${aiResult.status}`);
                
-               const payload = JSON.stringify({
-                   title: "🚨 PERINGATAN AI!",
-                   body: `AI Mendeteksi: ${aiResult.status}! Risiko: ${aiResult.finalRisk}%`
-               });
+//                // Kita bedakan judulnya biar keren
+//                let title = "INFO CUACA HARIAN";
+//                if (aiResult.finalRisk > 70) title = "🚨 PERINGATAN BAHAYA!";
+//                else if (aiResult.finalRisk > 40) title = "⚠️ PERINGATAN SIAGA";
 
-               subscribers.forEach(sub => {
-                   webpush.sendNotification(sub, payload).catch(err => console.error(err));
-               });
-           }
-       }
+//                const payload = JSON.stringify({
+//                    title: title,
+//                    body: `Status Saat Ini: ${aiResult.status}. Risiko: ${aiResult.finalRisk}%`
+//                });
 
-   } catch (err) {
-       console.error("Gagal cek background:", err.message);
-   }
+//                subscribers.forEach(sub => {
+//                    webpush.sendNotification(sub, payload).catch(err => console.error(err));
+//                });
+//            }
+//        }
 
-}, 60000); // Cek setiap 1 menit
+//    } catch (err) {
+//        console.error("Gagal cek background:", err.message);
+//    }
+
+// }, 60000); // Cek setiap 1 menit
+
+setInterval(async () => {
+  console.log("🔔 AI Background Check: Per Subscriber");
+
+  if (subscribers.length === 0) {
+    console.log("   ⚠️ No subscribers yet, skipping AI check");
+    return;
+  }
+
+  for (const user of subscribers) {
+    const { lat, lon, subscription } = user;
+
+    try {
+      const [weather, elevation] = await Promise.all([
+        getWeather(lat, lon),
+        getElevation(lat, lon)
+      ]);
+
+      if (!weather) continue;
+
+      const aiResult = await getAiPrediction(weather, lat, lon, elevation);
+
+      console.log(
+        `📍 ${lat}, ${lon} | Risk: ${aiResult.finalRisk}% | ${aiResult.status}`
+      );
+
+      // 🚫 Skip invalid push subs (VERY IMPORTANT)
+      if (!subscription?.keys?.auth || !subscription?.keys?.p256dh) {
+        console.log("   ⚠️ Invalid push subscription, skipping notification");
+        continue;
+      }
+
+      if (aiResult.finalRisk > 70) {
+        const payload = JSON.stringify({
+          title: "🚨 PERINGATAN BANJIR AI",
+          body: `Risiko ${aiResult.finalRisk}% — ${aiResult.status}`
+        });
+
+        await webpush.sendNotification(subscription, payload);
+        console.log("   ✅ Notification sent");
+      }
+
+    } catch (err) {
+      console.error("   ❌ AI check failed:", err.message);
+    }
+  }
+}, 60000);
+
+// setInterval(async () => {
+//    console.log("🔔 Background Check: Menganalisis potensi bahaya...");
+
+
+//    try {
+//        const result = {
+//            finalRisk: 95,
+//            status: "BAHAYA",    
+//            color: "red"
+//        };
+
+//        console.log(`   > Skor (Simulasi): ${result.finalRisk} (${result.status})`);
+
+//        if (result.finalRisk > 70) { 
+//            console.log(`   > 🚨 BAHAYA DETECTED! Menyiapkan notif...`);
+           
+//            if (subscribers.length === 0) {
+//                console.log("   ⚠️  GAGAL KIRIM: Tidak ada user yang subscribe (List Kosong).");
+//                console.log("   👉  Solusi: Buka web -> Klik tombol ALERT lonceng lagi.");
+//            } else {
+//                console.log(`   ✅  MENGIRIM ke ${subscribers.length} orang...`);
+               
+//                const notificationPayload = JSON.stringify({
+//                    title: "🚨 PERINGATAN BANJIR! (TEST)",
+//                    body: `Status: ${result.status}! Skor: ${result.finalRisk}.`
+//                });
+    
+//                subscribers.forEach((sub, index) => {
+//                    webpush.sendNotification(sub, notificationPayload)
+//                        .then(() => console.log(`       -> Sukses kirim ke User ${index + 1}`))
+//                        .catch(err => console.error(`       -> Gagal kirim ke User ${index + 1}:`, err.message));
+//                });
+//            }
+//        }
+
+//    } catch (err) {
+//        console.error("Error:", err);
+//    }
+
+// }, 10000); 
 
 
 // --- ENDPOINTS ---
@@ -240,16 +333,24 @@ app.get("/generate-dataset", async (req, res) => {
   res.send("CSV dataset created: dataset.csv");
 });
 
-app.post("/report", (req, res) => {
-  res.json({ success: true });
-});
-
 app.post("/subscribe", (req, res) => {
-  const subscription = req.body;
-  subscribers.push(subscription);
+  // Sekarang req.body berisi { subscription, lat, lon }
+  const subscriberData = req.body; 
+  
+  // Validasi agar tidak masuk data kosong
+  if (!subscriberData.lat || !subscriberData.subscription) {
+      return res.status(400).json({ error: "Data tidak lengkap" });
+  }
+
+  subscribers.push(subscriberData);
+  
+  console.log(`✅ User baru subscribe dari lokasi: ${subscriberData.lat}, ${subscriberData.lon}`);
+  
   res.status(201).json({});
-  const payload = JSON.stringify({ title: "FloodGuard AI", body: "Sistem AI siap memantau!" });
-  webpush.sendNotification(subscription, payload).catch(err => console.error(err));
+
+  // Kirim notif selamat datang (Optional)
+  const payload = JSON.stringify({ title: "FloodGuard AI", body: "Sistem AI siap memantau lokasi Anda!" });
+  webpush.sendNotification(subscriberData.subscription, payload).catch(err => console.error(err));
 });
 
 app.get("/", (req, res) => {

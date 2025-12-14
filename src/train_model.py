@@ -18,11 +18,6 @@ def load_data():
         raise FileNotFoundError(f"❌ File {DATASET_PATH} gak ketemu! Run 'node src/get_dataset.js' dulu!")
 
 def add_realistic_noise(df, features):
-    """
-    Fungsi ini mensimulasikan data dunia nyata yang tidak sempurna.
-    Kita tambahkan 'noise' (gangguan acak) ke data sensor cuaca.
-    """
-    print("\nMenambahkan Noise (Gangguan) ke Data biar Realistis...")
     
     df_noisy = df.copy()
     
@@ -51,15 +46,12 @@ def train():
     X = df_noisy[features]      
     y = df_clean['risk_label']  
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-
-    print("\nSedang melatih Random Forest (Mencari Pola)...")
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y)
     
     model = RandomForestClassifier(
         n_estimators=200,     
         max_depth=10,         
         min_samples_split=5,  
-        random_state=42
     )
     model.fit(X_train, y_train)
 
