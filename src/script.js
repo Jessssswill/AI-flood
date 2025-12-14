@@ -1,6 +1,10 @@
 // API URL (Pastikan server.js berjalan di port yang sama)
 const API_URL = 'http://localhost:3000';
 
+// --- KONFIGURASI WEB PUSH ---
+// PENTING: Paste Public Key hasil dari 'node generate_keys.js' di sini!
+const publicVapidKey = 'BCvz2afRqbdk5C0SHVIHsXo2s6Sctv9Sm3gmXtsgkYKe4VEf1aUEmIBqZ1_rciwZg7PNCR-rJ89E9Vf-Pw-NOxw'; 
+
 // === Icon SVGs (untuk status dinamis) ===
 const ICONS = {
     loading: `<svg class="status-icon animate-pulse" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.181M19.644 4.023l-3.182 3.182m0-3.182h-4.992m4.992 0v4.992" /></svg>`,
@@ -10,22 +14,21 @@ const ICONS = {
     bahaya: `<svg class="status-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>`
 };
 
-// Ikon untuk Cuaca (Sesuai Referensi Video)
+// Ikon untuk Cuaca
 const WMO_ICONS = {
-    0: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-6.364-.386l1.591-1.591M3 12H.75m.386-6.364l1.591 1.591"/></svg>`, // Cerah
-    1: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-6.364-.386l1.591-1.591M3 12H.75m.386-6.364l1.591 1.591M12 12a2.25 2.25 0 00-2.25 2.25v.01c0 .317.031.63.09.934a8.91 8.91 0 01-1.61 3.06 8.91 8.91 0 01-3.06 1.61c-.304.059-.617.09-.934.09v.01a2.25 2.25 0 002.25 2.25h.01c.317 0 .63-.031.934-.09a8.91 8.91 0 013.06-1.61 8.91 8.91 0 011.61-3.06c.059-.304.09-.617.09-.934v-.01a2.25 2.25 0 00-2.25-2.25h-.01z" /></svg>`, // Cerah berawan
-    2: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-9.75 2.152 4.5 4.5 0 00-4.5 4.5z" /></svg>`, // Berawan
-    3: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-9.75 2.152 4.5 4.5 0 00-4.5 4.5z" /></svg>`, // Sangat Berawan
-    45: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>`, // Kabut
-    48: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>`, // Kabut
-    61: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`, // Hujan Ringan
-    63: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`, // Hujan Sedang
-    65: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`, // Hujan Lebat
-    95: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>`, // Badai
+    0: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-6.364-.386l1.591-1.591M3 12H.75m.386-6.364l1.591 1.591"/></svg>`,
+    1: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-6.364-.386l1.591-1.591M3 12H.75m.386-6.364l1.591 1.591M12 12a2.25 2.25 0 00-2.25 2.25v.01c0 .317.031.63.09.934a8.91 8.91 0 01-1.61 3.06 8.91 8.91 0 01-3.06 1.61c-.304.059-.617.09-.934.09v.01a2.25 2.25 0 002.25 2.25h.01c.317 0 .63-.031.934-.09a8.91 8.91 0 013.06-1.61 8.91 8.91 0 011.61-3.06c.059-.304.09-.617.09-.934v-.01a2.25 2.25 0 00-2.25-2.25h-.01z" /></svg>`,
+    2: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-9.75 2.152 4.5 4.5 0 00-4.5 4.5z" /></svg>`,
+    3: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-9.75 2.152 4.5 4.5 0 00-4.5 4.5z" /></svg>`,
+    45: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>`,
+    48: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>`,
+    61: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`,
+    63: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`,
+    65: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`,
+    95: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>`,
     'default': `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>`
 };
 
-// WMO Weather Codes (Disederhanakan)
 const WMO_CODES = {
     0: { text: "Cerah", type: "clear", icon: WMO_ICONS[0] },
     1: { text: "Cerah Berawan", type: "clear", icon: WMO_ICONS[1] },
@@ -50,8 +53,8 @@ const WMO_CODES = {
 let currentCoords = { lat: null, lon: null };
 let homeCoords = null;
 let hourlyChart = null;
-let rainAnimationId = null; // Untuk mengontrol animasi
-let lastStatus = "AMAN"; // [FITUR BARU] Menyimpan status terakhir
+let rainAnimationId = null;
+let lastStatus = "AMAN"; 
 
 // === DOM Selection (Query Selector) ===
 function qs(selector) { return document.querySelector(selector); }
@@ -74,22 +77,78 @@ document.addEventListener('DOMContentLoaded', () => {
     qs('#close-tips-modal-button').addEventListener('click', hideTipsModal);
     
     loadHomeLocation();
-    setupRainAnimation(); // Siapkan canvas
+    setupRainAnimation();
     askLocation();
 });
 
 // 2. Minta Lokasi
-function askLocation() {
-    setLoadingState("Mencari lokasi Anda...");
+async function askLocation() {
+    setLoadingState("Mencari sinyal lokasi...");
+    
+    // Opsi GPS Browser: Matikan highAccuracy biar lebih cepat di Laptop/PC
+    const options = {
+        enableHighAccuracy: false, // Ubah ke false biar gak maksa nyari satelit (berat)
+        timeout: 5000,             // Batas waktu cuma 5 detik. Kelamaan? Langsung fallback!
+        maximumAge: 300000         // Boleh pakai cache lokasi 5 menit terakhir
+    };
+
     if (!navigator.geolocation) {
-        showToast("Geolocation tidak didukung browser ini.", "error");
-        setErrorState("Lokasi Error", "Browser tidak mendukung Geolocation.");
+        console.log("Browser tidak dukung Geolocation, beralih ke IP...");
+        useIpLocation(); // Fallback langsung
         return;
     }
-    navigator.geolocation.getCurrentPosition(locationSuccess, locationError, {
-        enableHighAccuracy: true, timeout: 10000, maximumAge: 0 
-    });
+
+    navigator.geolocation.getCurrentPosition(
+        locationSuccess, 
+        (err) => {
+            console.warn(`GPS Browser Gagal (${err.code}): ${err.message}. Mencoba IP Location...`);
+            useIpLocation(); // JANGAN ERROR DULU, PAKE PLAN B!
+        }, 
+        options
+    );
 }
+
+async function useIpLocation() {
+    setLoadingState("Triangulasi via IP Address...");
+    try {
+        // Pakai layanan gratis ipapi.co (atau ip-api.com)
+        // Ini gak butuh izin popup browser!
+        const res = await fetch('https://ipapi.co/json/');
+        if (!res.ok) throw new Error("Gagal fetch IP");
+        
+        const data = await res.json();
+        console.log("Dapat lokasi dari IP:", data);
+
+        // Pura-pura jadi object position biar kompatibel sama locationSuccess
+        const fallbackPosition = {
+            coords: {
+                latitude: data.latitude,
+                longitude: data.longitude
+            }
+        };
+        
+        locationSuccess(fallbackPosition);
+        showToast("Lokasi dideteksi via Jaringan (Estimasi)", "warning");
+
+    } catch (err) {
+        console.error("IP Location Error:", err);
+        // PLAN C: Kalau IP juga gagal, tembak Jakarta Pusat (Default)
+        useDefaultLocation();
+    }
+}
+
+function useDefaultLocation() {
+    console.log("Semua cara gagal. Menggunakan lokasi default (Jakarta).");
+    const defaultPos = {
+        coords: {
+            latitude: -6.1754, // Monas
+            longitude: 106.8272
+        }
+    };
+    locationSuccess(defaultPos);
+    showToast("Menggunakan Lokasi Default (Jakarta)", "error");
+}
+
 
 // 3. Sukses Dapat Lokasi
 function locationSuccess(position) {
@@ -106,16 +165,14 @@ function locationSuccess(position) {
     setInterval(() => {
         console.log("Auto-refresh data sensor...");
         fetchRiskData(currentCoords.lat, currentCoords.lon);
-    }, 600000); // 10 menit
+    }, 600000); 
 }
 
 // 4. Gagal Dapat Lokasi
 function locationError(err) {
-    console.warn(`LOCATION ERROR (${err.code}): ${err.message}`);
-    showToast("Gagal mendapatkan lokasi. Izinkan di pengaturan browser.", "error");
-    qs('#location-prompt').classList.add('hidden');
-    qs('#dashboard').classList.remove('hidden');
-    setErrorState("Gagal Deteksi Lokasi", "Pastikan izin lokasi sudah aktif.");
+    // Fungsi ini sekarang jarang dipanggil karena sudah di-handle oleh useIpLocation
+    console.warn("Gagal total mendapatkan lokasi.");
+    setErrorState("Sinyal Hilang", "Tidak dapat mendeteksi lokasi via GPS maupun IP.");
 }
 
 // 5. Ambil Data Sensor
@@ -138,17 +195,16 @@ async function fetchRiskData(lat, lon) {
     }
 }
 
-// 6. Update Tampilan (UI) - [VERSI V4.1 - GEOCODING]
+// 6. Update Tampilan (UI)
 function updateUI(data) {
     
-    // [FIX] Validasi utama HANYA pada data.final (data banjir)
     if (!data || !data.final) { 
         setErrorState("Data Risiko Tidak Valid", "Respon data 'final' tidak lengkap.");
         console.error("Data tidak lengkap:", data);
         return;
     }
 
-    // === 1. Data Banjir (WAJIB ADA) ===
+    // === 1. Data Banjir ===
     const { status, finalRisk, color } = data.final;
     const statusCard = qs('#status-card');
     statusCard.className = `card-status status-${color}`;
@@ -159,18 +215,10 @@ function updateUI(data) {
     if (!ICONS[iconKey]) iconKey = 'waspada';
     qs('#status-icon-container').innerHTML = ICONS[iconKey];
 
-    // Kirim Notifikasi jika status memburuk
-    if (status === 'SIAGA' || status === 'BAHAYA') {
-        if (lastStatus !== status) { // Hanya kirim jika status berubah
-            showLocalNotification(
-                `PERINGATAN: ${status}`,
-                `Risiko banjir di ${data.locationName || 'lokasi Anda'} telah meningkat. Skor: ${finalRisk}`
-            );
-        }
-    }
-    lastStatus = status; // Simpan status terakhir
+    // Simpan status terakhir
+    lastStatus = status; 
 
-    // === 2. Data Sensor Risiko Banjir (Kolom Kanan) ===
+    // === 2. Data Sensor Risiko Banjir ===
     qs('#elevation-data').innerHTML = `${(data.elevation ?? 0).toFixed(0)} <span class="sensor-unit">mdpl</span>`;
     qs('#rain1h-data').innerHTML = `${(data.rain?.rain1h ?? 0).toFixed(2)} <span class="sensor-unit">mm</span>`;
     qs('#rain6h-data').innerHTML = `${(data.rain?.rain6h ?? 0).toFixed(2)} <span class="sensor-unit">mm</span>`;
@@ -180,21 +228,18 @@ function updateUI(data) {
     else if (data.scores?.reportScore === 25) reportText = "10+";
     qs('#report-data').innerHTML = `${reportText} <span class="sensor-unit">laporan</span>`;
 
-    // === 3. Data Cuaca Saat Ini (Main Card) ===
-    const weatherNow = data.currentWeather; // Bisa jadi null
+    // === 3. Data Cuaca Saat Ini ===
+    const weatherNow = data.currentWeather; 
     const weatherInfo = WMO_CODES[weatherNow?.weathercode] || WMO_CODES['default'];
     
     qs('#current-temp-text').textContent = `${weatherNow?.temperature?.toFixed(0) ?? '--'}°`;
     qs('#current-feels-like').textContent = `${weatherNow?.apparent_temperature?.toFixed(0) ?? '--'}°`;
-    // [UPGRADE] Tampilkan Nama Kota jika ada, jika tidak, tampilkan Lat/Lon
     qs('#current-location-text').textContent = data.locationName || `Lokasi: ${currentCoords.lat}, ${currentCoords.lon}`;
     qs('#current-weather-text').textContent = weatherInfo.text;
     qs('#current-weather-icon').innerHTML = weatherInfo.icon;
     qs('#current-weather-icon').className = `weather-icon-large text-${weatherInfo.type === 'clear' ? 'yellow' : 'blue'}-400`;
     
-    // Juga update di box lokasi
     qs('#location-coords').textContent = `Lat: ${currentCoords.lat}, Lon: ${currentCoords.lon}`;
-
 
     // === 4. Trigger Animasi Hujan ===
     if (weatherInfo.type === 'rain') {
@@ -204,9 +249,9 @@ function updateUI(data) {
     }
 
     // === 5. Grafik Hujan ===
-    updateHourlyChart(data.weatherData); // data.weatherData bisa jadi null
+    updateHourlyChart(data.weatherData);
 
-    // === 6. Grid Detail Cuaca (Tahan Banting) ===
+    // === 6. Grid Detail Cuaca ===
     qs('#detail-wind').innerHTML = `${weatherNow?.wind_speed_10m?.toFixed(1) ?? '--'} <span class="detail-unit">km/j</span>`;
     qs('#detail-wind-dir').textContent = weatherNow ? degToCompass(weatherNow.wind_direction_10m) : '--';
     qs('#detail-humidity').innerHTML = `${weatherNow?.humidity?.toFixed(0) ?? '--'} <span class="detail-unit">%</span>`;
@@ -216,9 +261,6 @@ function updateUI(data) {
     qs('#detail-visibility').innerHTML = `${weatherNow?.visibility?.toFixed(1) ?? '--'} <span class="detail-unit">km</span>`;
     qs('#detail-cloud').innerHTML = `${weatherNow?.cloud_cover?.toFixed(0) ?? '--'} <span class="detail-unit">%</span>`;
 }
-
-// 7. Update Grafik (Chart.js)
-// ... (kode atas tetap sama) ...
 
 // 7. Update Grafik (Versi Hologram Neon)
 function updateHourlyChart(weatherData) { 
@@ -242,28 +284,27 @@ function updateHourlyChart(weatherData) {
     const totalRain = data.reduce((a, b) => a + b, 0);
     qs('#hourly-summary').textContent = `PREDICTED ACCUMULATION (24H): ${totalRain.toFixed(1)} MM`;
 
-    // SETUP GRADIENT HOLOGRAM
     const gradientFill = ctx.createLinearGradient(0, 0, 0, 400);
-    gradientFill.addColorStop(0, 'rgba(0, 243, 255, 0.5)'); // Cyan Terang di atas
-    gradientFill.addColorStop(1, 'rgba(0, 243, 255, 0)');   // Transparan di bawah
+    gradientFill.addColorStop(0, 'rgba(0, 243, 255, 0.5)'); 
+    gradientFill.addColorStop(1, 'rgba(0, 243, 255, 0)');  
 
     hourlyChart = new Chart(ctx, {
-        type: 'line', // Ganti ke LINE chart agar lebih Sci-Fi
+        type: 'line', 
         data: {
             labels: labels,
             datasets: [{
                 label: 'RAINFALL (mm)', 
                 data: data,
                 backgroundColor: gradientFill,
-                borderColor: '#00f3ff', // Garis Neon Cyan
+                borderColor: '#00f3ff', 
                 borderWidth: 2,
                 pointBackgroundColor: '#000',
                 pointBorderColor: '#00f3ff',
                 pointRadius: 3,
                 pointHoverRadius: 6,
                 pointHoverBackgroundColor: '#fff',
-                fill: true, // Isi area di bawah garis
-                tension: 0.4 // Garis melengkung
+                fill: true, 
+                tension: 0.4 
             }]
         },
         options: {
@@ -274,7 +315,7 @@ function updateHourlyChart(weatherData) {
                     type: 'time', 
                     time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } }, 
                     ticks: { color: '#00f3ff', font: { family: 'Rajdhani' } }, 
-                    grid: { color: 'rgba(0, 243, 255, 0.1)' } // Grid tipis
+                    grid: { color: 'rgba(0, 243, 255, 0.1)' } 
                 },
                 y: { 
                     beginAtZero: true, 
@@ -302,8 +343,6 @@ function updateHourlyChart(weatherData) {
         }
     });
 }
-
-// ... (kode bawah tetap sama) ...
 
 // 8. Set UI ke mode Loading
 function setLoadingState(message) {
@@ -381,7 +420,7 @@ function loadHomeLocation() {
     }
 }
 
-// 13. [FITUR BARU] Modal Tips
+// 13. [FITUR] Modal Tips
 function showTipsModal() {
     qs('#tips-modal').classList.remove('hidden');
 }
@@ -389,38 +428,57 @@ function hideTipsModal() {
     qs('#tips-modal').classList.add('hidden');
 }
 
-// 14. [FITUR BARU] Notifikasi
-function askNotificationPermission() {
-    if (!("Notification" in window)) {
-        showToast("Browser ini tidak mendukung notifikasi desktop", "error");
+// 14. [FITUR BARU] Notifikasi Web Push (Service Worker)
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+async function askNotificationPermission() {
+    if (!('serviceWorker' in navigator)) {
+        showToast("Browser tidak mendukung Service Worker", "error");
         return;
     }
-    
-    Notification.requestPermission().then((permission) => {
-        if (permission === "granted") {
-            showToast("Notifikasi berhasil diaktifkan!", "success");
-            showLocalNotification("FloodGuard Aktif", "Anda akan diberitahu jika ada risiko banjir SIAGA atau BAHAYA.");
-        } else {
-            showToast("Izin notifikasi tidak diberikan.", "warning");
-        }
-    });
-}
 
-function showLocalNotification(title, body) {
-    if (!("Notification" in window)) return; // Tidak didukung
-    
-    if (Notification.permission === "granted") {
-        const options = {
-            body: body,
-            icon: "https://placehold.co/192x192/3B82F6/FFFFFF?text=FG", // Placeholder ikon notifikasi
-            badge: "https://placehold.co/128x128/3B82F6/FFFFFF?text=!",
-        };
-        new Notification(title, options);
+    try {
+        console.log("Mendaftarkan Service Worker...");
+        const register = await navigator.serviceWorker.register('/sw.js', {
+            scope: '/'
+        });
+
+        console.log("Service Worker Ready. Meminta izin notif...");
+        const subscription = await register.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+        });
+
+        console.log("Berhasil Subscribe!");
+
+        // Kirim data langganan ke server
+        await fetch('/subscribe', {
+            method: 'POST',
+            body: JSON.stringify(subscription),
+            headers: {
+                'content-type': 'application/json'
+            }
+        });
+
+        showToast("Background Notifikasi Aktif!", "success");
+
+    } catch (err) {
+        console.error("Gagal setup notifikasi:", err);
+        showToast("Gagal mengaktifkan notifikasi (Blokir/Error).", "error");
     }
 }
 
 
-// === Helper Functions (Sesuai Video) ===
+// === Helper Functions ===
 function degToCompass(num) {
     if (typeof num !== 'number') return '--';
     const val = Math.floor((num / 22.5) + 0.5);
