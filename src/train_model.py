@@ -63,7 +63,7 @@ def train():
     print("="*40)
     print(f"Akurasi Model: {acc*100:.2f}%")
     
-    print("\n--- Detail Performa per Label ---")
+    print("\nDetail Performa per Label")
     print(classification_report(y_test, y_pred))
 
     joblib.dump(model, MODEL_FILE)

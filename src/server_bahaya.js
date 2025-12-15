@@ -30,10 +30,53 @@ webpush.setVapidDetails(
 
 let subscribers = [];
 
+const TEST_MODE = true; 
+function getFakeDangerData() {
+    // Bikin grafik hujan buatan (naik drastis)
+    const fakeRainHourly = new Array(24).fill(0).map((_, i) => (i > 10 && i < 16) ? 80 : 5); 
+
+    return {
+        locationName: "⚠️ SIMULASI BADAI ⚠️",
+        final: {
+            status: "BAHAYA",       // Status Merah
+            finalRisk: 95,          // Skor Tinggi
+            color: "red",
+            confidence: 100
+        },
+        rain: {
+            rain1h: 55.0,           // Hujan sejam terakhir deras
+            rain3h: 120.0,
+            rain6h: 200.0,
+            raw6hrain: [10, 20, 80, 50, 20, 10]
+        },
+        elevation: 2, // Dataran rendah
+        currentWeather: {
+            temperature: 24,
+            apparent_temperature: 22,
+            humidity: 98,
+            pressure: 990, 
+            cloud_cover: 100,
+            visibility: 2,
+            wind_speed_10m: 45.0, 
+            wind_direction_10m: 180,
+            uv_index: 1,
+            weathercode: 95 // Badai Petir
+        },
+        weatherData: {
+            hourly: {
+                time: Array.from({length: 24}, (_, i) => new Date(Date.now() + i * 3600000).toISOString()),
+                rain: fakeRainHourly,
+                precipitation: fakeRainHourly
+            }
+        }
+    };
+}
+
+// --- FUNGSI AI ASLI ---
 async function getAiPrediction(weatherData, lat, lon, elevation) {
     return new Promise((resolve, reject) => {
         const h = weatherData.hourly;
-        
+        // ... (Logic AI Asli sama seperti sebelumnya) ...
         const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
         const sum = arr => arr.reduce((a, b) => a + b, 0);
         const max = arr => Math.max(...arr);
@@ -53,82 +96,72 @@ async function getAiPrediction(weatherData, lat, lon, elevation) {
         };
 
         const pythonProcess = spawn('python', ['src/predict.py', JSON.stringify(inputFeatures)]);
-
         let resultData = '';
 
-        pythonProcess.stdout.on('data', (data) => {
-            resultData += data.toString();
-        });
-
-        pythonProcess.stderr.on('data', (data) => {
-            console.error(`Python Error Log: ${data}`);
-        });
+        pythonProcess.stdout.on('data', (data) => { resultData += data.toString(); });
+        pythonProcess.stderr.on('data', (data) => { console.error(`Python Error Log: ${data}`); });
 
         pythonProcess.on('close', (code) => {
-            if (code !== 0) {
-                console.error(`Python mati dengan code ${code}`);
-                resolve({ status: "SISTEM ERROR", finalRisk: 0, color: "gray", confidence: 0 });
-            } else {
-                try {
-                    const jsonResult = JSON.parse(resultData);
-                    resolve(jsonResult); // Kembalikan hasil prediksi AI
-                } catch (e) {
-                    console.error("Gagal baca JSON dari Python:", resultData);
-                    resolve({ status: "JSON ERROR", finalRisk: 0, color: "gray", confidence: 0 });
-                }
+            if (code !== 0) resolve({ status: "SISTEM ERROR", finalRisk: 0, color: "gray" });
+            else {
+                try { resolve(JSON.parse(resultData)); } 
+                catch (e) { resolve({ status: "JSON ERROR", finalRisk: 0, color: "gray" }); }
             }
         });
     });
 }
 
-
+// --- PERBAIKAN 1: NOTIFIKASI BACKGROUND (SINKRON DENGAN TEST MODE) ---
 setInterval(async () => {
-  console.log("🔔 AI Background Check: Per Subscriber");
+  if (subscribers.length === 0) return;
 
-  if (subscribers.length === 0) {
-    console.log("   ⚠️ No subscribers yet, skipping AI check");
-    return;
+  // JIKA MODE TEST AKTIF: Langsung kirim notif bahaya
+  if (TEST_MODE) {
+      console.log("🔥 [TEST MODE] Mengirim Simulasi Bahaya ke User...");
+      const fake = getFakeDangerData();
+      const payload = JSON.stringify({
+          title: "🚨 PERINGATAN BAHAYA BANJIR!",
+          body: `SIMULASI: Status ${fake.final.status}! Risiko: ${fake.final.finalRisk}%`
+      });
+      subscribers.forEach(sub => {
+          webpush.sendNotification(sub.subscription, payload).catch(e => console.error(e));
+      });
+      return; // Stop, jangan jalankan logic asli
   }
 
+  // JIKA MODE TEST MATI: Jalankan Logic Asli
+  console.log("🔔 AI Background Check: Realtime Mode");
   for (const user of subscribers) {
     const { lat, lon, subscription } = user;
-
     try {
-      const [weather, elevation] = await Promise.all([
-        getWeather(lat, lon),
-        getElevation(lat, lon)
-      ]);
-
+      const [weather, elevation] = await Promise.all([getWeather(lat, lon), getElevation(lat, lon)]);
       if (!weather) continue;
 
       const aiResult = await getAiPrediction(weather, lat, lon, elevation);
-
-      console.log(
-        `📍 ${lat}, ${lon} | Risk: ${aiResult.finalRisk}% | ${aiResult.status}`
-      );
-
-      if (!subscription?.keys?.auth || !subscription?.keys?.p256dh) {
-        console.log("   ⚠️ Invalid push subscription, skipping notification");
-        continue;
-      }
+      console.log(`📍 ${lat}, ${lon} | Risk: ${aiResult.finalRisk}% | ${aiResult.status}`);
 
       if (aiResult.finalRisk > 70) {
         const payload = JSON.stringify({
           title: "🚨 PERINGATAN BANJIR AI",
           body: `Risiko ${aiResult.finalRisk}% — ${aiResult.status}`
         });
-
-        await webpush.sendNotification(subscription, payload);
-        console.log("   ✅ Notification sent");
+        await webpush.sendNotification(subscription, payload).catch(e => console.error(e));
       }
-
-    } catch (err) {
-      console.error("   ❌ AI check failed:", err.message);
-    }
+    } catch (err) { console.error(err.message); }
   }
-}, 60000);
+}, TEST_MODE ? 10000 : 60000); // Kalau Test 10 detik, Asli 60 detik
 
+
+// --- PERBAIKAN 2: ENDPOINT UI (DIPAKSA MERAH JIKA TEST MODE) ---
 app.get("/risk", async (req, res) => {
+  
+  // 🔥 CEGAT DI SINI! Kalau Test Mode, kasih data palsu ke Frontend
+  if (TEST_MODE) {
+      console.log("⚠️ Frontend minta data -> Mengirim Data SIMULASI BAHAYA");
+      return res.json(getFakeDangerData());
+  }
+
+  // --- LOGIC ASLI (Hanya jalan kalau TEST_MODE = false) ---
   const { lat, lon } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: "Lat/Lon dibutuhkan" });
 
@@ -140,7 +173,6 @@ app.get("/risk", async (req, res) => {
     ]);
 
     const aiResult = await getAiPrediction(weather, lat, lon, elevation);
-    
     const rain = calculateRainScore(weather);
 
     let currentWeather = null;
@@ -175,31 +207,25 @@ app.get("/risk", async (req, res) => {
   }
 });
 
-
+// --- HELPER FETCHING ---
 async function getCityName(lat, lon) {
   try {
     const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=id`;
     const res = await fetch(url);
     const data = await res.json();
     return data.locality || data.city || `Lokasi: ${lat}, ${lon}`;
-  } catch (err) {
-    return `Lokasi: ${lat}, ${lon}`;
-  }
+  } catch (err) { return `Lokasi: ${lat}, ${lon}`; }
 }
 
 async function getWeather(lat, lon) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     `&hourly=rain,precipitation,temperature_2m,relative_humidity_2m,surface_pressure,wind_gusts_10m,soil_moisture_0_to_1cm,weathercode,apparent_temperature,cloud_cover,visibility,wind_speed_10m,wind_direction_10m` +
     `&daily=uv_index_max&forecast_days=1&timezone=auto`;
-    
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error("Gagal ambil data cuaca");
     return await res.json();
-  } catch (err) {
-    console.error("Weather API error:", err.message);
-    return null; 
-  }
+  } catch (err) { return null; }
 }
 
 async function getElevation(lat, lon) {
@@ -213,44 +239,30 @@ function calculateRainScore(weatherData) {
   const rainArr = weatherData?.hourly?.rain ?? [];
   const r = Array.from({ length: 6 }, (_, i) => rainArr[i] ?? 0);
   const [r0, r1, r2, r3, r4, r5] = r;  
-  return {
-    rain1h: r0,
-    rain3h: r0+r1+r2,
-    rain6h: r0+r1+r2+r3+r4+r5,
-    raw6hrain : r
-  };
+  return { rain1h: r0, rain3h: r0+r1+r2, rain6h: r0+r1+r2+r3+r4+r5, raw6hrain : r };
 }
 
 // --- ENDPOINTS LAINNYA ---
-
 app.get("/generate-dataset", async (req, res) => {
   await fetchDataset();
   res.send("CSV dataset created: dataset.csv");
 });
 
 app.post("/subscribe", (req, res) => {
-  // Sekarang req.body berisi { subscription, lat, lon }
   const subscriberData = req.body; 
-  
-  // Validasi agar tidak masuk data kosong
   if (!subscriberData.lat || !subscriberData.subscription) {
       return res.status(400).json({ error: "Data tidak lengkap" });
   }
-
   subscribers.push(subscriberData);
-  
   console.log(`✅ User baru subscribe dari lokasi: ${subscriberData.lat}, ${subscriberData.lon}`);
-  
   res.status(201).json({});
-
-  // Kirim notif selamat datang (Optional)
   const payload = JSON.stringify({ title: "FloodGuard AI", body: "Sistem AI siap memantau lokasi Anda!" });
   webpush.sendNotification(subscriberData.subscription, payload).catch(err => console.error(err));
 });
 
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
+app.post("/report", (req, res) => { res.json({ success: true }); });
+
+app.get("/", (req, res) => { res.sendFile(path.join(__dirname, "index.html")); });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

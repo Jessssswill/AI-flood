@@ -1,7 +1,6 @@
 // API URL (Pastikan server.js berjalan di port yang sama)
 const API_URL = 'http://localhost:3000';
 
-// --- KONFIGURASI WEB PUSH ---
 // PENTING: Paste Public Key hasil dari 'node generate_keys.js' di sini!
 const publicVapidKey = 'BCvz2afRqbdk5C0SHVIHsXo2s6Sctv9Sm3gmXtsgkYKe4VEf1aUEmIBqZ1_rciwZg7PNCR-rJ89E9Vf-Pw-NOxw'; 
 
@@ -49,17 +48,14 @@ const WMO_CODES = {
     'default': { text: "Data Error", type: "clear", icon: WMO_ICONS['default'] }
 };
 
-// === Global State ===
 let currentCoords = { lat: null, lon: null };
 let homeCoords = null;
 let hourlyChart = null;
 let rainAnimationId = null;
 let lastStatus = "AMAN"; 
 
-// === DOM Selection (Query Selector) ===
 function qs(selector) { return document.querySelector(selector); }
 
-// === Fungsi Utama ===
 
 document.addEventListener('DOMContentLoaded', () => {
     // Tombol
@@ -70,8 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
     qs('#cancel-modal-button').addEventListener('click', hideModal);
     qs('#report-form').addEventListener('submit', handleReportSubmit);
     qs('#set-home-button').addEventListener('click', setHomeLocation);
-    
-    // Listener untuk tombol baru
     qs('#notification-button').addEventListener('click', askNotificationPermission);
     qs('#tips-button').addEventListener('click', showTipsModal);
     qs('#close-tips-modal-button').addEventListener('click', hideTipsModal);
@@ -94,7 +88,7 @@ async function askLocation() {
 
     if (!navigator.geolocation) {
         console.log("Browser tidak dukung Geolocation, beralih ke IP...");
-        useIpLocation(); // Fallback langsung
+        useIpLocation();
         return;
     }
 
@@ -102,7 +96,7 @@ async function askLocation() {
         locationSuccess, 
         (err) => {
             console.warn(`GPS Browser Gagal (${err.code}): ${err.message}. Mencoba IP Location...`);
-            useIpLocation(); // JANGAN ERROR DULU, PAKE PLAN B!
+            useIpLocation();
         }, 
         options
     );
@@ -111,15 +105,12 @@ async function askLocation() {
 async function useIpLocation() {
     setLoadingState("Triangulasi via IP Address...");
     try {
-        // Pakai layanan gratis ipapi.co (atau ip-api.com)
-        // Ini gak butuh izin popup browser!
         const res = await fetch('https://ipapi.co/json/');
         if (!res.ok) throw new Error("Gagal fetch IP");
         
         const data = await res.json();
         console.log("Dapat lokasi dari IP:", data);
 
-        // Pura-pura jadi object position biar kompatibel sama locationSuccess
         const fallbackPosition = {
             coords: {
                 latitude: data.latitude,
@@ -133,7 +124,10 @@ async function useIpLocation() {
     } catch (err) {
         console.error("IP Location Error:", err);
         useDefaultLocation();
-
+        // qs('#location-prompt').classList.add('hidden');
+        // qs('#dashboard').classList.remove('hidden');
+        // setErrorState("Gagal Deteksi Lokasi", "Pastikan izin lokasi sudah aktif.");
+        // showToast("Gagal mendapatkan lokasi. Izinkan di pengaturan browser.", "error");
     }
 }
 
@@ -141,7 +135,7 @@ function useDefaultLocation() {
     console.log("Semua cara gagal. Menggunakan lokasi default (Jakarta).");
     const defaultPos = {
         coords: {
-            latitude: -6.1754, // Monas
+            latitude: -6.1754,
             longitude: 106.8272
         }
     };
@@ -165,7 +159,7 @@ function locationSuccess(position) {
     setInterval(() => {
         console.log("Auto-refresh data sensor...");
         fetchRiskData(currentCoords.lat, currentCoords.lon);
-    }, 1000); 
+    }, 60000); 
 }
 
 // 4. Gagal Dapat Lokasi
